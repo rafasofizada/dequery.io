@@ -2,6 +2,8 @@ baseURL = 'https://dequery.io'
 languageCode = 'en-us'
 title = 'Rafael Sofi-zada'
 theme = 'smol'
+relativeURLs = false
+canonifyURLs = true
 
 [caches]
   [caches.images]
