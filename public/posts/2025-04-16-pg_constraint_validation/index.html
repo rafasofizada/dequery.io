@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<style type=text/css>body{font-family:monospace;}</style>
+	<title>Postgres: disable, reenable and revalidate foreign key constraints</title>
+	
+	
+	<link rel="stylesheet" href="/css/style.css">
+	
+	
+</head>
+<body>
+	<header>
+	======================<br>
+	== <a href="https://example.org/">Rafael Sofi-zada</a> ==<br>
+	======================
+	<div style="float: right;"></div><br>
+	<p>
+	<nav>
+			<a href="/"><b>Start</b></a>.
+			
+</header>
+
+	
+	<main>
+		<article>
+			<h1>Postgres: disable, reenable and revalidate foreign key constraints</h1>
+			<b><time>2025-04-16 15:49:05</time></b>
+		       
+		           <a href="/tags/postgres">postgres</a>
+        	       
+		           <a href="/tags/sql">sql</a>
+        	       
+
+			<div>
+				<p>Say you’re writing an ETL tool for Postgres [article coming soon]. If you’re not loading all the data in one transaction, and in an arbitrary order, even with <code>DEFERRED</code>, you’ll get foreign key constraint violations.</p>
+<p>So you need to temporarily disable all foreign key constraints, load the data, enable them back, and, optionally, revalidate all constraints.</p>
+<h1 id="how-to-disable-foreign-key-constraints-in-postgresql">How to disable foreign key constraints in PostgreSQL?</h1>
+<ul>
+<li>
+<p>Foreign key constraints are implemented using <strong>triggers</strong></p>
+</li>
+<li>
+<p>Hence, to temporarily disable foreign key constraints, you&rsquo;d need to disable the triggers:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#75715e">-- Disables all triggers
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">ALTER</span> <span style="color:#66d9ef">TABLE</span> your_table_name DISABLE <span style="color:#66d9ef">TRIGGER</span> <span style="color:#66d9ef">ALL</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">-- Re-enable constraints when finished
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">ALTER</span> <span style="color:#66d9ef">TABLE</span> your_table_name ENABLE <span style="color:#66d9ef">TRIGGER</span> <span style="color:#66d9ef">ALL</span>;
+</span></span></code></pre></div></li>
+<li>
+<p>Alternative, <code>session_replication_role</code></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#75715e">-- Disables all triggers
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">SET</span> session_replication_role <span style="color:#f92672">=</span> replica;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">-- Re-enable constraints when finished
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">SET</span> session_replication_role <span style="color:#f92672">=</span> origin;
+</span></span></code></pre></div><ul>
+<li><a href="https://postgrespro.com/list/thread-id/2369438">What does <code>session_replication_role</code> have to do with triggers?</a></li>
+</ul>
+</li>
+<li>
+<p>However, this disables <em>all</em> triggers, including user-defined ones (e.g. <code>BEFORE INSERT</code>, <code>AFTER UPDATE</code>, etc.)</p>
+</li>
+</ul>
+<blockquote>
+<p>But I have user-defined triggers that I want to run while data is loaded!</p></blockquote>
+<h2 id="how-to-disable-only-foreign-key-related-triggers"><strong>How to disable</strong> <em>only</em> <strong>foreign-key-related triggers?</strong></h2>
+<ul>
+<li>There’s no single DDL command that allows you this.</li>
+<li>However, you can query the system trigger names that implement the foreign key constraints. Then, run a <code>PL/pgSQL</code> procedure to disable/enable them.</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#66d9ef">DO</span> <span style="color:#960050;background-color:#1e0010">$$</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">DECLARE</span>
+</span></span><span style="display:flex;"><span>  trg RECORD;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">BEGIN</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">FOR</span> trg <span style="color:#66d9ef">IN</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">SELECT</span>
+</span></span><span style="display:flex;"><span>      quote_ident(nspname)      <span style="color:#66d9ef">AS</span> <span style="color:#66d9ef">schema_name</span>,
+</span></span><span style="display:flex;"><span>      quote_ident(rel.relname)  <span style="color:#66d9ef">AS</span> <span style="color:#66d9ef">table_name</span>,
+</span></span><span style="display:flex;"><span>      quote_ident(t.tgname)     <span style="color:#66d9ef">AS</span> <span style="color:#66d9ef">trigger_name</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">/* OPTIONAL */</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">-- Whether trigger is enabled in human-readable form
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#75715e">---- Why &#39;O&#39; and not &#39;E&#39;? tgenabled is not a simple on/off, it&#39;s related to replication role settings: O – origin, R - replica, A – always, D – disabled
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">CASE</span> t.tgenabled
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">WHEN</span> <span style="color:#e6db74">&#39;O&#39;</span> <span style="color:#66d9ef">THEN</span> <span style="color:#e6db74">&#39;ENABLED&#39;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">WHEN</span> <span style="color:#e6db74">&#39;D&#39;</span> <span style="color:#66d9ef">THEN</span> <span style="color:#e6db74">&#39;DISABLED&#39;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">ELSE</span> <span style="color:#e6db74">&#39;UNKNOWN&#39;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">END</span> <span style="color:#66d9ef">AS</span> trigger_status,
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">-- Events the trigger is set on
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      ARRAY(
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">SELECT</span> <span style="color:#e6db74">&#34;event&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">-- tgtype is a bitmask.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#75715e">-- Meaning of each bit: https://github.com/postgres/postgres/blob/master/src/include/catalog/pg_trigger.h#L95
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#66d9ef">FROM</span> <span style="color:#66d9ef">unnest</span>(ARRAY[<span style="color:#e6db74">&#39;INSERT&#39;</span>, <span style="color:#e6db74">&#39;DELETE&#39;</span>, <span style="color:#e6db74">&#39;UPDATE&#39;</span>, <span style="color:#e6db74">&#39;TRUNCATE&#39;</span>]) <span style="color:#66d9ef">WITH</span> <span style="color:#66d9ef">ORDINALITY</span> <span style="color:#66d9ef">AS</span> u(<span style="color:#e6db74">&#34;event&#34;</span>, idx)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">WHERE</span> ((t.tgtype <span style="color:#f92672">&gt;&gt;</span> (u.idx::INT <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>)) <span style="color:#f92672">&amp;</span> <span style="color:#ae81ff">1</span>) <span style="color:#f92672">!=</span> <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>      ) <span style="color:#66d9ef">AS</span> trigger_events,
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">-- Function the trigger implements (e.g. &#34;RI_FKey_check_ins&#34;, &#34;RI_FKey_check_upd&#34;)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      pg_proc.proname <span style="color:#66d9ef">AS</span> function_name,
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">-- Human-readable description of the constraint
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      pg_get_constraintdef(con.oid) <span style="color:#66d9ef">AS</span> constraint_description
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">/* OPTIONAL */</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">FROM</span>
+</span></span><span style="display:flex;"><span>    pg_trigger t
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">-- table
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">JOIN</span> pg_class rel
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">ON</span> t.tgrelid <span style="color:#f92672">=</span> rel.oid
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">-- schema
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">JOIN</span> pg_namespace
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">ON</span> pg_class.relnamespace <span style="color:#f92672">=</span> pg_namespace.oid
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">-- constraints (that the trigger is implementing (optional, as described in WHERE))
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">JOIN</span> pg_constraint con
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">ON</span> con.conrelid <span style="color:#f92672">=</span> rel.oid
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">AND</span> t.tgconstraint <span style="color:#f92672">=</span> con.oid
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">-- function (that the trigger is implementing (optional, as described in SELECT))
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">JOIN</span> pg_proc
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">ON</span> pg_proc.oid <span style="color:#f92672">=</span> t.tgfoid
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">WHERE</span>
+</span></span><span style="display:flex;"><span>      t.tgisinternal <span style="color:#75715e">-- is system-defined (e.g. excluding set__key in triggers.sql)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">AND</span> t.tgenabled <span style="color:#f92672">=</span> <span style="color:#75715e">-- &#39;O&#39; for enabled, &#39;D&#39; for disabled
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">AND</span> con.contype <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;f&#39;</span> <span style="color:#75715e">-- is foreign key constraint...
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#75715e">-- ...(redundant, because only fkey constrs are implemented with triggers, but to be safe)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  LOOP
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">-- If enabling...
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">EXECUTE</span> format(<span style="color:#e6db74">&#39;ALTER TABLE %I.%I ENABLE TRIGGER %I&#39;</span>, trg.<span style="color:#66d9ef">schema_name</span>, trg.<span style="color:#66d9ef">table_name</span>, trg.<span style="color:#66d9ef">trigger_name</span>);
+</span></span><span style="display:flex;"><span>    RAISE NOTICE <span style="color:#e6db74">&#39;Enabled system trigger &#39;&#39;%&#39;&#39; for table &#39;&#39;%&#39;&#39; on &#39;&#39;%&#39;&#39; events for constr &#39;&#39;%&#39;&#39;&#39;</span>, trg.<span style="color:#66d9ef">trigger_name</span>, trg.<span style="color:#66d9ef">table_name</span>, trg.trigger_events, trg.constraint_description;
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">-- If disabling...
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">EXECUTE</span> format(<span style="color:#e6db74">&#39;ALTER TABLE %I.%I DISABLE TRIGGER %I&#39;</span>, trg.<span style="color:#66d9ef">schema_name</span>, trg.<span style="color:#66d9ef">table_name</span>, trg.<span style="color:#66d9ef">trigger_name</span>);
+</span></span><span style="display:flex;"><span>    RAISE NOTICE <span style="color:#e6db74">&#39;Disabled system trigger &#39;&#39;%&#39;&#39; for table &#39;&#39;%&#39;&#39; on &#39;&#39;%&#39;&#39; events for constr &#39;&#39;%&#39;&#39;&#39;</span>, trg.<span style="color:#66d9ef">trigger_name</span>, trg.<span style="color:#66d9ef">table_name</span>, trg.trigger_events, trg.constraint_description;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">END</span> LOOP;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">END</span> <span style="color:#960050;background-color:#1e0010">$$</span>
+</span></span></code></pre></div><!-- raw HTML omitted -->
+<p><strong>Foreign key constraints aren’t validated when you enable them back on.</strong> At this point, you might have data that violates constraints, but you’ll get no errors.</p>
+<!-- raw HTML omitted -->
+<blockquote>
+<p>Well that’s…bad. I still want to make sure the data I’ve loaded satisfies all of my constraints.</p></blockquote>
+<h2 id="how-to-validate-foreign-key-constraints-after-re-enabling-them">How to validate foreign key constraints after re-enabling them?</h2>
+<ul>
+<li>Easy!</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#66d9ef">ALTER</span> <span style="color:#66d9ef">TABLE</span> your_table_name VALIDATE <span style="color:#66d9ef">CONSTRAINT</span> fk_constraint_name;
+</span></span></code></pre></div><ul>
+<li>… nope ❌ . <a href="https://www.postgresql.org/docs/current/sql-altertable.html#SQL-ALTERTABLE-DESC-VALIDATE-CONSTRAINT"><code>VALIDATE CONSTRAINT</code> only works on constraints marked as <code>NOT VALID</code></a>.</li>
+<li>You can’t <code>ALTER CONSTRAINT</code>  to make it <code>NOT VALID</code> – <code>NOT VALID</code> <a href="https://www.notion.so/How-to-disable-reenable-and-revalidate-foreign-key-constraints-in-Postgres-1d3f1b4d927380c288c4c4f06d52898d?pvs=21">is only available at constraint-creation-time.</a></li>
+<li>Now, you have 2 options:
+<ul>
+<li>Drop and recreate all constraints in a <code>PL/pgSQL</code> procedure (difficult).</li>
+<li>Or…</li>
+</ul>
+</li>
+</ul>
+<h2 id="validate-constraint-system-catalog-hack"><code>VALIDATE CONSTRAINT</code> system catalog hack</h2>
+<p>We can fool the <code>VALIDATE CONSTRAINT</code> command by manually setting a flag (responsible for <code>NOT VALID</code>) in the system catalogs:</p>
+<!-- raw HTML omitted -->
+<p>Common advice is to refrain from ever manually editing system catalogs. However, in 1 year of using this in our in-house Postgres ETL tool, we’ve had 0 problems with this approach.</p>
+<!-- raw HTML omitted -->
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#66d9ef">DO</span> <span style="color:#960050;background-color:#1e0010">$$</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">DECLARE</span>
+</span></span><span style="display:flex;"><span>  r RECORD;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">BEGIN</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">FOR</span> r <span style="color:#66d9ef">IN</span> (
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">SELECT</span>
+</span></span><span style="display:flex;"><span>      conrelid::regclass <span style="color:#66d9ef">AS</span> <span style="color:#66d9ef">table_name</span>,
+</span></span><span style="display:flex;"><span>      conname <span style="color:#66d9ef">AS</span> <span style="color:#66d9ef">constraint_name</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">FROM</span> pg_constraint
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">WHERE</span> contype <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;f&#39;</span>  <span style="color:#75715e">-- foreign key constraints
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  )
+</span></span><span style="display:flex;"><span>  LOOP
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">UPDATE</span> pg_constraint
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">SET</span> convalidated <span style="color:#f92672">=</span> <span style="color:#66d9ef">false</span> <span style="color:#75715e">-- the &#39;NOT VALID&#39; flag
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">WHERE</span>
+</span></span><span style="display:flex;"><span>      conrelid <span style="color:#f92672">=</span> r.<span style="color:#66d9ef">table_name</span>::regclass
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">AND</span> conname <span style="color:#f92672">=</span> r.<span style="color:#66d9ef">constraint_name</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    RAISE NOTICE <span style="color:#e6db74">&#39;Set constraint % on table % to NOT VALID&#39;</span>, r.<span style="color:#66d9ef">constraint_name</span>, r.<span style="color:#66d9ef">table_name</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">END</span> LOOP;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">END</span> <span style="color:#960050;background-color:#1e0010">$$</span>;
+</span></span></code></pre></div><p>Now, if you run:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#66d9ef">DO</span> <span style="color:#960050;background-color:#1e0010">$$</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">DECLARE</span>
+</span></span><span style="display:flex;"><span>  fk RECORD;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">BEGIN</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">FOR</span> fk <span style="color:#66d9ef">IN</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">SELECT</span> conname, conrelid::regclass <span style="color:#66d9ef">AS</span> <span style="color:#66d9ef">table_name</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">FROM</span> pg_constraint
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">WHERE</span> contype <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;f&#39;</span> <span style="color:#66d9ef">AND</span> convalidated <span style="color:#f92672">=</span> <span style="color:#66d9ef">FALSE</span>
+</span></span><span style="display:flex;"><span>  LOOP
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">EXECUTE</span> format(<span style="color:#e6db74">&#39;ALTER TABLE %s VALIDATE CONSTRAINT %I&#39;</span>, fk.<span style="color:#66d9ef">table_name</span>, fk.conname);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">END</span> LOOP;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">END</span>;
+</span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">$$</span> <span style="color:#66d9ef">LANGUAGE</span> plpgsql;
+</span></span></code></pre></div><p>Your constraints are validated, and you’ll get errors if any data fails them.</p>
+
+			</div>
+		</article>
+	</main>
+<aside>
+	<div>
+		<div>
+			<h3>LATEST POSTS</h3>
+		</div>
+		<div>
+			<ul>
+				
+				<li><a href="/posts/2025-04-16-pg_constraint_validation/">Postgres: disable, reenable and revalidate foreign key constraints</a></li>
+				
+			</ul>
+		</div>
+	</div>
+</aside>
+
+
+	<footer>
+	<p>&copy; 2025 <a href="https://example.org/"><b>Rafael Sofi-zada</b></a>.
+	</p>
+</footer>
+
+</body>
+</html>
