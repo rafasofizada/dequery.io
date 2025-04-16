@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Rafael Sofi-zada</title>
-    <link>https://example.org/</link>
+    <link>https://dequery.io/</link>
     <description>Recent content on Rafael Sofi-zada</description>
     <generator>Hugo</generator>
     <language>en-us</language>
     <lastBuildDate>Wed, 16 Apr 2025 15:49:05 +0200</lastBuildDate>
-    <atom:link href="https://example.org/index.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="https://dequery.io/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Postgres: disable, reenable and revalidate foreign key constraints</title>
-      <link>https://example.org/posts/2025-04-16-pg_constraint_validation/</link>
+      <link>https://dequery.io/posts/2025-04-16-pg_constraint_validation/</link>
       <pubDate>Wed, 16 Apr 2025 15:49:05 +0200</pubDate>
-      <guid>https://example.org/posts/2025-04-16-pg_constraint_validation/</guid>
+      <guid>https://dequery.io/posts/2025-04-16-pg_constraint_validation/</guid>
       <description>&lt;p&gt;Say you’re writing an ETL tool for Postgres [article coming soon]. If you’re not loading all the data in one transaction, and in an arbitrary order, even with &lt;code&gt;DEFERRED&lt;/code&gt;, you’ll get foreign key constraint violations.&lt;/p&gt;&#xA;&lt;p&gt;So you need to temporarily disable all foreign key constraints, load the data, enable them back, and, optionally, revalidate all constraints.&lt;/p&gt;&#xA;&lt;h1 id=&#34;how-to-disable-foreign-key-constraints-in-postgresql&#34;&gt;How to disable foreign key constraints in PostgreSQL?&lt;/h1&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;&#xA;&lt;p&gt;Foreign key constraints are implemented using &lt;strong&gt;triggers&lt;/strong&gt;&lt;/p&gt;</description>
     </item>
   </channel>
