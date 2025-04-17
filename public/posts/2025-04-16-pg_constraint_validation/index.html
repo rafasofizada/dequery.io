@@ -1,43 +1,165 @@
 <!DOCTYPE html>
-<html lang="en-us">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<style type=text/css>body{font-family:monospace;}</style>
-	<title>Postgres: disable, reenable and revalidate foreign key constraints</title>
-	
-	
-	<link rel="stylesheet" href="https://dequery.io/css/style.css">
-	
-	
-</head>
-<body>
-	<header>
-	======================<br>
-	== <a href="https://dequery.io/">Rafael Sofi-zada</a> ==<br>
-	======================
-	<div style="float: right;"></div><br>
-	<p>
-	<nav>
-		<a href="https://dequery.io/"><b>Start</b></a>.
-		
-</header>
-	
-	<main>
-		<article>
-			<h1>Postgres: disable, reenable and revalidate foreign key constraints</h1>
-			<b><time>2025-04-16 15:49:05</time></b>
-		       
-		           <a href="https://dequery.io/tags/postgres">postgres</a>
-        	       
-		           <a href="https://dequery.io/tags/sql">sql</a>
-        	       
+<html lang="en-us"
+  dir="ltr">
 
-			<div>
-				<p>Say you’re writing an ETL tool for Postgres [article coming soon]. If you’re not loading all the data in one transaction, and in an arbitrary order, even with <code>DEFERRED</code>, you’ll get foreign key constraint violations.</p>
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+<link rel="icon" type="image/ico" href="https://dequery.io//favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://dequery.io//favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://dequery.io//favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="https://dequery.io//android-chrome-192x192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="https://dequery.io//apple-touch-icon.png">
+
+<meta name="description" content=""/>
+
+
+
+<title>
+    
+    Postgres: disable, reenable and revalidate foreign key constraints | Rafael Sofi-zada
+    
+</title>
+
+<link rel="canonical" href="https://dequery.io/posts/2025-04-16-pg_constraint_validation/"/>
+
+<meta property="og:url" content="https://dequery.io/posts/2025-04-16-pg_constraint_validation/">
+  <meta property="og:site_name" content="Rafael Sofi-zada">
+  <meta property="og:title" content="Postgres: disable, reenable and revalidate foreign key constraints">
+  <meta property="og:description" content="Say you’re writing an ETL tool for Postgres [article coming soon]. If you’re not loading all the data in one transaction, and in an arbitrary order, even with DEFERRED, you’ll get foreign key constraint violations.
+So you need to temporarily disable all foreign key constraints, load the data, enable them back, and, optionally, revalidate all constraints.
+How to disable foreign key constraints in PostgreSQL? # Foreign key constraints are implemented using triggers">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2025-04-16T15:49:05+02:00">
+    <meta property="article:modified_time" content="2025-04-16T15:49:05+02:00">
+    <meta property="article:tag" content="Postgres">
+    <meta property="article:tag" content="Sql">
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="https://dequery.io/assets/combined.min.3b28da97e4024eac0d424b40ea2fbbe7eb8c4d9d150c0dd44dce30ec165bb805.css" media="all">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+</head>
+
+
+
+
+
+<body class="auto">
+
+  <div class="content">
+    <header>
+      
+
+<div class="header">
+
+    
+
+    <h1 class="header-title">
+        <a href="https://dequery.io/">Rafael Sofi-zada</a>
+    </h1>
+
+    <div class="flex">
+        
+
+        
+    </div>
+
+    
+
+</div>
+
+    </header>
+
+    <main class="main">
+      
+
+
+
+
+<div class="breadcrumbs"><a href="https://dequery.io/">Home</a><span class="breadcrumbs-separator">/</span><a href="https://dequery.io/posts/">Posts</a><span class="breadcrumbs-separator">/</span>
+        <a href="https://dequery.io/posts/2025-04-16-pg_constraint_validation/">Postgres: disable, reenable and revalidate foreign key constraints</a></div>
+
+
+<div >
+
+  <div class="single-intro-container">
+
+    
+
+    <h1 class="single-title">Postgres: disable, reenable and revalidate foreign key constraints</h1>
+    
+
+    
+
+    <p class="single-readtime">
+      
+      
+      
+      <time datetime="2025-04-16T15:49:05&#43;02:00">April 16, 2025</time>
+      
+
+      
+    </p>
+
+  </div>
+
+  
+
+  
+
+  
+
+  
+
+  <div class="single-content">
+    <p>Say you’re writing an ETL tool for Postgres [article coming soon]. If you’re not loading all the data in one transaction, and in an arbitrary order, even with <code>DEFERRED</code>, you’ll get foreign key constraint violations.</p>
 <p>So you need to temporarily disable all foreign key constraints, load the data, enable them back, and, optionally, revalidate all constraints.</p>
-<h1 id="how-to-disable-foreign-key-constraints-in-postgresql">How to disable foreign key constraints in PostgreSQL?</h1>
+<h1 class="heading" id="how-to-disable-foreign-key-constraints-in-postgresql">
+  How to disable foreign key constraints in PostgreSQL?
+  <a class="anchor" href="#how-to-disable-foreign-key-constraints-in-postgresql">#</a>
+</h1>
 <ul>
 <li>
 <p>Foreign key constraints are implemented using <strong>triggers</strong></p>
@@ -67,7 +189,10 @@
 </ul>
 <blockquote>
 <p>But I have user-defined triggers that I want to run while data is loaded!</p></blockquote>
-<h2 id="how-to-disable-only-foreign-key-related-triggers"><strong>How to disable</strong> <em>only</em> <strong>foreign-key-related triggers?</strong></h2>
+<h2 class="heading" id="how-to-disable-only-foreign-key-related-triggers">
+  <strong>How to disable</strong> <em>only</em> <strong>foreign-key-related triggers?</strong>
+  <a class="anchor" href="#how-to-disable-only-foreign-key-related-triggers">#</a>
+</h2>
 <ul>
 <li>There’s no single DDL command that allows you this.</li>
 <li>However, you can query the system trigger names that implement the foreign key constraints. Then, run a <code>PL/pgSQL</code> procedure to disable/enable them.</li>
@@ -136,7 +261,10 @@
 <!-- raw HTML omitted -->
 <blockquote>
 <p>Well that’s…bad. I still want to make sure the data I’ve loaded satisfies all of my constraints.</p></blockquote>
-<h2 id="how-to-validate-foreign-key-constraints-after-re-enabling-them">How to validate foreign key constraints after re-enabling them?</h2>
+<h2 class="heading" id="how-to-validate-foreign-key-constraints-after-re-enabling-them">
+  How to validate foreign key constraints after re-enabling them?
+  <a class="anchor" href="#how-to-validate-foreign-key-constraints-after-re-enabling-them">#</a>
+</h2>
 <ul>
 <li>Easy!</li>
 </ul>
@@ -151,7 +279,10 @@
 </ul>
 </li>
 </ul>
-<h2 id="validate-constraint-system-catalog-hack"><code>VALIDATE CONSTRAINT</code> system catalog hack</h2>
+<h2 class="heading" id="validate-constraint-system-catalog-hack">
+  <code>VALIDATE CONSTRAINT</code> system catalog hack
+  <a class="anchor" href="#validate-constraint-system-catalog-hack">#</a>
+</h2>
 <p>We can fool the <code>VALIDATE CONSTRAINT</code> command by manually setting a flag (responsible for <code>NOT VALID</code>) in the system catalogs:</p>
 <!-- raw HTML omitted -->
 <p>Common advice is to refrain from ever manually editing system catalogs. However, in 1 year of using this in our in-house Postgres ETL tool, we’ve had 0 problems with this approach.</p>
@@ -193,29 +324,77 @@
 </span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">$$</span> <span style="color:#66d9ef">LANGUAGE</span> plpgsql;
 </span></span></code></pre></div><p>Your constraints are validated, and you’ll get errors if any data fails them.</p>
 
-			</div>
-		</article>
-	</main>
-<aside>
-	<div>
-		<div>
-			<h3>LATEST POSTS</h3>
-		</div>
-		<div>
-			<ul>
-				
-				<li><a href="https://dequery.io/posts/2025-04-16-pg_constraint_validation/">Postgres: disable, reenable and revalidate foreign key constraints</a></li>
-				
-			</ul>
-		</div>
-	</div>
-</aside>
+    
+  </div>
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+  <div class="back-to-top">
+    <a href="#top">
+      back to top
+    </a>
+  </div>
+  
+
+</div>
 
 
-	<footer>
-	<p>&copy; 2025 <a href="https://dequery.io/"><b>Rafael Sofi-zada</b></a>.
-	</p>
-</footer>
+    </main>
+  </div>
 
+  
+  
+
+
+
+
+
+    
+
+
+
+
+  <footer>
+    
+
+    
+    
+
+
+
+
+
+    
+
+
+
+
+    
+    <p>Powered by
+        <a href="https://gohugo.io/">Hugo</a>
+        and
+        <a href="https://github.com/tomfran/typo">tomfran/typo</a>
+    </p>
+    
+    
+    
+
+
+  </footer>
+
+  
 </body>
+
+<script src="https://dequery.io/js/theme-switch.js"></script>
+<script defer src="https://dequery.io/js/copy-code.js"></script>
 </html>
