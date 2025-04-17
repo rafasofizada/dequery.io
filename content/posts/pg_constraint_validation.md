@@ -1,5 +1,11 @@
 ---
 title: "Postgres: disable, reenable and revalidate foreign key constraints"
+summary: >
+  - Why would someone need to do this?
+  
+  - How to toggle foreign key constraints, without `TRIGGER ALL`?
+  
+  - How to validate constraints after reenabling them?
 date: 2025-04-16T15:49:05+02:00
 slug: 2025-04-16-pg_constraint_validation
 type: posts
@@ -15,7 +21,7 @@ Say you’re writing an ETL tool for Postgres [article coming soon]. If you’re
 
 So you need to temporarily disable all foreign key constraints, load the data, enable them back, and, optionally, revalidate all constraints.
 
-# How to disable foreign key constraints in PostgreSQL?
+### How to disable foreign key constraints in PostgreSQL?
 
 - Foreign key constraints are implemented using **triggers**
 - Hence, to temporarily disable foreign key constraints, you'd need to disable the triggers:
@@ -44,7 +50,7 @@ So you need to temporarily disable all foreign key constraints, load the data, e
 > But I have user-defined triggers that I want to run while data is loaded!
 > 
 
-## **How to disable** *only* **foreign-key-related triggers?**
+### **How to disable** *only* **foreign-key-related triggers?**
 
 - There’s no single DDL command that allows you this.
 - However, you can query the system trigger names that implement the foreign key constraints. Then, run a `PL/pgSQL` procedure to disable/enable them.
@@ -121,7 +127,7 @@ END $$
 > Well that’s…bad. I still want to make sure the data I’ve loaded satisfies all of my constraints.
 > 
 
-## How to validate foreign key constraints after re-enabling them?
+### How to validate foreign key constraints after re-enabling them?
 
 - Easy!
 
@@ -135,7 +141,7 @@ ALTER TABLE your_table_name VALIDATE CONSTRAINT fk_constraint_name;
     - Drop and recreate all constraints in a `PL/pgSQL` procedure (difficult).
     - Or…
 
-## `VALIDATE CONSTRAINT` system catalog hack
+### `VALIDATE CONSTRAINT` system catalog hack
 
 We can fool the `VALIDATE CONSTRAINT` command by manually setting a flag (responsible for `NOT VALID`) in the system catalogs:
 

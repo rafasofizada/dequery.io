@@ -8,3 +8,62 @@ canonifyURLs = true
 [caches]
   [caches.images]
     dir = ':cacheDir/images'
+
+[taxonomies]
+tag = 'tags'
+
+[params]
+# Meta description
+description = "Blog about database development from dequery.io, world's first SQL debugger."
+
+# Appearance settings
+theme = 'auto'
+colorPalette = 'default'
+hideHeader = false
+
+# Intro on main page, content is markdown
+homeIntroContent = """
+Node.js CRUD engineer moving into systems development, with a focus on databases 
+"""
+
+# Collection to display on home
+homeCollectionTitle = 'Posts'
+homeCollection = 'posts'
+
+# Lists parameters
+paginationSize = 100
+listSummaries = true
+listDateFormat = '2 Jan 2006'
+
+# Breadcrumbs
+[params.breadcrumbs]
+enabled = true
+showCurrentPage = true
+home = "Home"
+
+# Social icons
+[[params.social]]
+name = "linkedin"
+url = "https://www.linkedin.com/in/rafasofizada/"
+
+[[params.social]]
+name = "github"
+url = "https://github.com/rafasofizada"
+
+# Main menu pages
+[[params.menu]]
+name = "home"
+url = "/"
+
+[[params.menu]]
+name = "posts"
+url = "/posts"
+
+[[params.menu]]
+name = "resume"
+url = "/resume"
+
+# Syntax highlight on code blocks
+[markup]
+[markup.highlight]
+style = 'modus-operandi'

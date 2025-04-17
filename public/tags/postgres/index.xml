@@ -13,7 +13,7 @@
       <link>https://dequery.io/posts/2025-04-16-pg_constraint_validation/</link>
       <pubDate>Wed, 16 Apr 2025 15:49:05 +0200</pubDate>
       <guid>https://dequery.io/posts/2025-04-16-pg_constraint_validation/</guid>
-      <description>&lt;p&gt;Say you’re writing an ETL tool for Postgres [article coming soon]. If you’re not loading all the data in one transaction, and in an arbitrary order, even with &lt;code&gt;DEFERRED&lt;/code&gt;, you’ll get foreign key constraint violations.&lt;/p&gt;&#xA;&lt;p&gt;So you need to temporarily disable all foreign key constraints, load the data, enable them back, and, optionally, revalidate all constraints.&lt;/p&gt;&#xA;&lt;h1 class=&#34;heading&#34; id=&#34;how-to-disable-foreign-key-constraints-in-postgresql&#34;&gt;&#xA;  How to disable foreign key constraints in PostgreSQL?&#xA;  &lt;a class=&#34;anchor&#34; href=&#34;#how-to-disable-foreign-key-constraints-in-postgresql&#34;&gt;#&lt;/a&gt;&#xA;&lt;/h1&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;&#xA;&lt;p&gt;Foreign key constraints are implemented using &lt;strong&gt;triggers&lt;/strong&gt;&lt;/p&gt;</description>
+      <description>&lt;ul&gt;&#xA;&lt;li&gt;Why would someone need to do this?&lt;/li&gt;&#xA;&lt;li&gt;How to toggle foreign key constraints, without &lt;code&gt;TRIGGER ALL&lt;/code&gt;?&lt;/li&gt;&#xA;&lt;li&gt;How to validate constraints after reenabling them?&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;</description>
     </item>
   </channel>
 </rss>
